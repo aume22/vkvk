@@ -14,19 +14,23 @@ using namespace std;
 					     std::plus<double>())) \
   initializer(omp_priv=decltype(omp_orig)(omp_orig.size()))
 
+/// Square function
 constexpr inline double sqr(const double& x)
 {
   return x*x;
 }
 
+/// Computes the correlation given the volume
 vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
 {
-  const double mu2=mu*mu;
-  constexpr double bc0=0.5;
+  /// Quark mass
+  const double mu2=
+    mu*mu;
   
-  vector<double> c(T,0.0);
+  /// Phase factor at time boundary in units of 2*M_PI
+  constexpr double bc0=
+	      0.5;
   
-  // double p0[T],pI[L];
   double pt0[T],ptI[L];
   double p2t0[T],p2tI[L];
   double pc0[T],pcI[L];
@@ -38,6 +42,7 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
       p2t0[iP0]=sqr(pt0[iP0]);
       pc0[iP0]=cos(p0);
     }
+  
   for(int iPI=0;iPI<L;iPI++)
     {
       const double pI=
@@ -47,11 +52,14 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
       pcI[iPI]=cos(pI);
     }
   
-  constexpr double permMultTable[]=
-	      {1,1,3,6};
-  
+  /// Number of colors
   constexpr int Nc=3;
   
+  /// Correlator in momentum space
+  vector<double> c(T,0.0);
+  
+  /// Loop over all Q0, P0 combination
+  /// These are arranged as i=iQ0*(iQ0+1)/2+iP0
 #pragma omp parallel for reduction(vec_double_plus:c)
   for(int64_t i=0;i<T*(T+1)/2;i++)
     {
@@ -65,54 +73,73 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
 	for(int iP2=0;iP2<=iP1;iP2++)
 	  for(int iP3=0;iP3<=iP2;iP3++)
 	    {
+	      /// Space parity
 	      const int parMult=
 		((iP1 and iP1!=L/2)+1)*
 		((iP2 and iP2!=L/2)+1)*
 		((iP3 and iP3!=L/2)+1);
 	      
+	      /// Multiplicity of the permutation, given the number of equal
+	      /// components (1 is actually never used)
+	      constexpr double permMultTable[]=
+			  {1,1,3,6};
+	      
+	      /// Space components multiplicity
 	      const int permMult=
 		permMultTable
 		[(iP1!=iP2)+
 		 (iP2!=iP3)+
 		 (iP3!=iP1)];
 	      
-	      const double Mp=4-pc0[iP0]-pcI[iP1]-pcI[iP2]-pcI[iP3];
-	      const double Mq=4-pc0[iQ0]-pcI[iP1]-pcI[iP2]-pcI[iP3];
+	      /// M(p)
+	      const double Mp=
+		4-pc0[iP0]-pcI[iP1]-pcI[iP2]-pcI[iP3];
 	      
-	      // const double num=mu2+
-	      //   pt0[iP0]*pt0[iQ0]+ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3]+Mp*Mq*r1*r2;
+	      /// M(q)
+	      const double Mq=
+		4-pc0[iQ0]-pcI[iP1]-pcI[iP2]-pcI[iP3];
+	      
+	      /// Numerator of the loop integrand
 	      const double num=mu2+
 		pt0[iP0]*pt0[iQ0]+(ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3])/3-Mp*Mq*r12;
 	      
+	      /// First factor of denominator
 	      const double dmp=
 		(mu2+sqr(Mp)+p2t0[iP0]+p2tI[iP1]+p2tI[iP2]+p2tI[iP3]);
 	      
+	      /// Second factor of the denominator
 	      const double dmq=
 		(mu2+sqr(Mq)+p2t0[iQ0]+p2tI[iP1]+p2tI[iP2]+p2tI[iP3]);
 	      
+	      /// Denominator
 	      const double den=
 		  dmp*dmq;
 	      
-	      temp+=parMult*permMult*num/den;
+	      temp+=
+		parMult*permMult*num/den;
 	    }
 	
       c[pmq0]+=temp*(1+(iP0!=iQ0));
     }
   
+  /// Take Fourier transform
   vector<double> d(T,0.0);
   for(int iT=0;iT<T;iT++)
     for(int iP0=0;iP0<T;iP0++)
       d[iT]+=cos(2*M_PI*iP0/T*iT)*c[iP0];
   
+  /// Normalization
   const double n=
     4.0*Nc/T/T/L/L/L;
   
+  /// Add the normalization
   for(int iT=0;iT<T;iT++)
     d[iT]*=n;
   
   return d;
 }
 
+/// Compute the correlation function, given the volume and scale
 vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,const int& r2,const int& scale)
 {
   vector<double> scaledC=
@@ -167,18 +194,19 @@ int main(int narg,char **arg)
 	  
 	  prevTime=curTime;
 	  
-	  ofstream corrFile("corrFile_r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_scale_"+to_string(scale+1));
+	  const string tag=
+	    "r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_scale_"+to_string(scale+1);
+	  
+	  ofstream a2CorrFile("a2Corr_"+tag);
+	  a2CorrFile.precision(16);
 	  for(int iT=0;iT<T;iT++)
-	    corrFile<<iT<<" "<<c[scale][iT]-c[0][iT]<<endl;
-	}
-      
-      // for(int iT=0;iT<T;iT++)
-      // 	{
-      // 	  cout<<iT;
-      // 	  for(int scale=0;scale<scaleMax;scale++)
-      // 	    cout<<" "<<c[scale][iT];
-      // 	  cout<<endl;
-      // 	}
+	    a2CorrFile<<iT<<" "<<c[scale][iT]-c[0][iT]<<endl;
+	  
+	  ofstream corrFile("corr_"+tag);
+	  corrFile.precision(16);
+	  for(int iT=0;iT<T;iT++)
+	    corrFile<<iT<<" "<<c[scale][iT]<<endl;
+      	}
     }
   
   return 0;
