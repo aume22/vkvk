@@ -162,7 +162,8 @@ int main(int narg,char **arg)
       exit(0);
     }
   
-#pragma omp parallel master
+#pragma omp parallel
+#pragma omp master
   cout<<"Using "<<omp_get_num_threads()<<" threads"<<endl;
   
   const int L=atoi(arg[1]);
