@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <omp.h>
 
 using namespace std;
 
@@ -160,6 +161,8 @@ int main(int narg,char **arg)
       cerr<<"Use: "<<arg[0]<<" L scaleMax"<<endl;
       exit(0);
     }
+  
+  cout<<"Using "<<omp_get_num_threads()<<" threads"<<endl;
   
   const int L=atoi(arg[1]);
   const int scaleMax=atoi(arg[2]);
