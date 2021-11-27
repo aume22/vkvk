@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <vector>
+
 #include <omp.h>
 
 using namespace std;
@@ -141,24 +144,43 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
 }
 
 /// Compute the correlation function, given the volume and scale
-vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,const int& r2,const int& scale)
+vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,const int& r2,const int& scale,const string& tag)
 {
-  vector<double> scaledC=
-    VKVK(T*scale,L*scale,mu,r1*r2);
-  
   vector<double> c(T);
   
-  for(int t=0;t<T;t++)
-    c[t]=scaledC[t*scale]*scale*scale*scale;
+  using namespace std::filesystem;
+  
+  const path filePath="corr_"+tag;
+  
+  if(exists(filePath))
+    {
+      int jT;
+      ifstream corrFile(filePath);
+      for(int iT=0;iT<T;iT++)
+	corrFile>>jT>>c[iT];
+    }
+  else
+    {
+      vector<double> scaledC=
+	VKVK(T*scale,L*scale,mu/scale,r1*r2);
+      
+      for(int t=0;t<T;t++)
+	c[t]=scaledC[t*scale]*scale*scale*scale;
+      
+      ofstream corrFile(filePath);
+      corrFile.precision(16);
+      for(int iT=0;iT<T;iT++)
+	corrFile<<iT<<" "<<c[iT]<<endl;
+    }
   
   return c;
 }
 
 int main(int narg,char **arg)
 {
-  if(narg<3)
+  if(narg<4)
     {
-      cerr<<"Use: "<<arg[0]<<" L scaleMax"<<endl;
+      cerr<<"Use: "<<arg[0]<<" L amu scaleMax"<<endl;
       exit(0);
     }
   
@@ -167,13 +189,13 @@ int main(int narg,char **arg)
   cout<<"Using "<<omp_get_num_threads()<<" threads"<<endl;
   
   const int L=atoi(arg[1]);
-  const int scaleMax=atoi(arg[2]);
+  const double mu=strtod(arg[2],nullptr);
+  const int scaleMax=atoi(arg[3]);
   
   cout<<"L="<<L<<" scaleMax="<<scaleMax<<endl;
   
   const int T=L*2;
   constexpr int r1=1;
-  constexpr double mu=0;
   
   for(const int& r2 : {-1,1})
     {
@@ -181,6 +203,9 @@ int main(int narg,char **arg)
       int prevTime=0,initTime=time(0);
       for(int scale=0;scale<scaleMax;scale++)
 	{
+	  const string tag=
+	    "r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_mu_"+arg[2]+"_scale_"+to_string(scale+1);
+	  
 	  int curTimeEst=0;
 	  int totTimeEst=0;
 	  if(scale)
@@ -193,25 +218,17 @@ int main(int narg,char **arg)
 	  cout<<"Computing scale "<<scale+1<<", estimated time: "<<curTimeEst<<" s, total estimated time: "<<totTimeEst<<" s ... ";
 	  cout.flush();
 	  int curTime=-time(0);
-	  c[scale]=VKVK(T,L,mu,r1,r2,1+scale);
+	  c[scale]=VKVK(T,L,mu,r1,r2,1+scale,tag);
 	  curTime+=time(0);
 	  cout<<"needed time: "<<curTime<<" s, total passed time: "<<time(0)-initTime<<" s"<<endl;
 	  
 	  prevTime=curTime;
 	  
-	  const string tag=
-	    "r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_scale_"+to_string(scale+1);
-	  
 	  ofstream a2CorrFile("a2Corr_"+tag);
 	  a2CorrFile.precision(16);
 	  for(int iT=0;iT<T;iT++)
 	    a2CorrFile<<iT<<" "<<c[scale][iT]-c[0][iT]<<endl;
-	  
-	  ofstream corrFile("corr_"+tag);
-	  corrFile.precision(16);
-	  for(int iT=0;iT<T;iT++)
-	    corrFile<<iT<<" "<<c[scale][iT]<<endl;
-      	}
+	}
     }
   
   return 0;
