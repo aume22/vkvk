@@ -105,7 +105,7 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
 	      
 	      /// Numerator of the loop integrand
 	      const double num=mu2+
-		pt0[iP0]*pt0[iQ0]+(ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3])/3-Mp*Mq*r12;
+		pt0[iP0]*pt0[iQ0]+(ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3])/3+Mp*Mq*r12;
 	      
 	      /// First factor of denominator
 	      const double dmp=
@@ -168,7 +168,7 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,con
 	c[t]=scaledC[t*scale]*scale*scale*scale;
       
       ofstream corrFile(filePath);
-      corrFile.precision(16);
+      corrFile.precision(17);
       for(int iT=0;iT<T;iT++)
 	corrFile<<iT<<" "<<c[iT]<<endl;
     }
@@ -192,7 +192,7 @@ int main(int narg,char **arg)
   const double mu=strtod(arg[2],nullptr);
   const int scaleMax=atoi(arg[3]);
   
-  cout<<"L="<<L<<" scaleMax="<<scaleMax<<endl;
+  cout<<"L="<<L<<", mu="<<mu<<", scaleMax="<<scaleMax<<endl;
   
   const int T=L*2;
   constexpr int r1=1;
