@@ -105,7 +105,7 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r12)
 	      
 	      /// Numerator of the loop integrand
 	      const double num=mu2+
-		pt0[iP0]*pt0[iQ0]+(ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3])/3+Mp*Mq*r12;
+		pt0[iP0]*pt0[iQ0]+(ptI[iP1]*ptI[iP1]+ptI[iP2]*ptI[iP2]+ptI[iP3]*ptI[iP3])/3-Mp*Mq*r12;
 	      
 	      /// First factor of denominator
 	      const double dmp=
@@ -176,6 +176,67 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,con
   return c;
 }
 
+double interpolate(const vector<vector<double>>& d,const int& iT,const int& degree)
+{
+  const int scaleMax=d.size();
+  
+  vector<double> Al(2*degree+1,0.0);
+  vector<double> c(degree+1);
+  for(int scale=scaleMax;scale>=scaleMax-degree;scale--)
+    {
+      const double x=
+	1.0/scale/scale;
+      
+      /// Weight
+      double w=
+	1.0;
+      
+      for(int f=0;f<=2*degree;f++)
+	{
+	  Al[f]+=w;
+	  if(f<=degree)
+	    c[f]+=d[scale-1][iT]*w;
+	  w*=x;
+	}
+    }
+  
+  vector<double> A((degree+1)*(degree+1));
+  for(int i=0;i<=degree;i++)
+    for(int j=0;j<=degree;j++)
+      A[i*(degree+1)+j]=Al[i+j];
+  
+  //
+  
+  for(int i=0;i<degree+1;i++)
+    {
+      double C=A[i*(degree+1)+i];
+      for(int j=i;j<degree+1;j++)
+	A[i*(degree+1)+j]/=C;
+      c[i]/=C;
+      
+      for(int k=i+1;k<degree+1;k++)
+	{
+	  double C=A[k*(degree+1)+i];
+	  for(int j=i;j<degree+1;j++)
+	    A[k*(degree+1)+j]-=A[i*(degree+1)+j]*C;
+	  c[k]-=C*c[i];
+	}
+    }
+  
+  vector<double> res(degree+1);
+  for(int k=degree;k>=0;k--)
+    {
+      double S=
+	0.0;
+      
+      for(int i=k+1;i<degree+1;i++)
+	S+=A[k*(degree+1)+i]*res[i];
+      res[k]=c[k]-S;
+    }
+  
+  return res[0];
+}
+
 int main(int narg,char **arg)
 {
   if(narg<4)
@@ -199,12 +260,14 @@ int main(int narg,char **arg)
   
   for(const int& r2 : {-1,1})
     {
+      const string physTag=
+	"r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_mu_"+arg[2];
+	
       vector<vector<double>> c(scaleMax);
       int prevTime=0,initTime=time(0);
       for(int scale=0;scale<scaleMax;scale++)
 	{
-	  const string tag=
-	    "r1_"+to_string((r1+1)/2)+"_r2_"+to_string((r2+1)/2)+"_L_"+to_string(L)+"_T_"+to_string(T)+"_mu_"+arg[2]+"_scale_"+to_string(scale+1);
+	  const string tag=physTag+"_scale_"+to_string(scale+1);
 	  
 	  int curTimeEst=0;
 	  int totTimeEst=0;
@@ -228,6 +291,26 @@ int main(int narg,char **arg)
 	  a2CorrFile.precision(16);
 	  for(int iT=0;iT<T;iT++)
 	    a2CorrFile<<iT<<" "<<c[scale][iT]-c[0][iT]<<endl;
+	}
+      
+      for(int splineOrder=1;splineOrder<scaleMax;splineOrder++)
+	{
+	  const string tag=physTag+"_extr_spline_"+to_string(splineOrder);
+	  const string filePath="corr_"+tag;
+	  
+	  vector<double> extr(T);
+	  for(int iT=0;iT<T;iT++)
+	    extr[iT]=interpolate(c,iT,splineOrder);
+      
+	  ofstream corrFile(filePath);
+	  corrFile.precision(17);
+	  for(int iT=0;iT<T;iT++)
+	    corrFile<<iT<<" "<<extr[iT]<<endl;
+	  
+	  ofstream a2CorrFile("a2Corr_"+tag);
+	  a2CorrFile.precision(16);
+	  for(int iT=0;iT<T;iT++)
+	    a2CorrFile<<iT<<" "<<extr[iT]-c[0][iT]<<endl;
 	}
     }
   
