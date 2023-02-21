@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <filesystem>
+//#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -148,11 +148,16 @@ vector<double> VKVK(const int& T,const int& L,const double& mu,const int& r1,con
 {
   vector<double> c(T);
   
-  using namespace std::filesystem;
+  const string filePath="corr_"+tag;
   
-  const path filePath="corr_"+tag;
+  bool ex=false;
+  {
+    ifstream i(filePath);
+    if(i.good())
+      ex=true;
+  }
   
-  if(exists(filePath))
+  if(ex)
     {
       int jT;
       ifstream corrFile(filePath);
@@ -301,7 +306,7 @@ int main(int narg,char **arg)
 	  vector<double> extr(T);
 	  for(int iT=0;iT<T;iT++)
 	    extr[iT]=interpolate(c,iT,splineOrder);
-      
+	  
 	  ofstream corrFile(filePath);
 	  corrFile.precision(17);
 	  for(int iT=0;iT<T;iT++)
